@@ -11,7 +11,7 @@ typedef struct {
   int chosenAlgorithm, q, maxTraceEntries;
   // Statistics variables
   int iterations, numOfReads, numOfWrites;
-  int pageFaults, hits;
+  int pageFaults, hits, updates;
   int gccTraceBits, bzipTraceBits;
   // Queue
   Queue *queue;

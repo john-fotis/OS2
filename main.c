@@ -40,7 +40,7 @@ int main (int argc, char * argv[]) {
   sharedMemory->maxTraceEntries = maxTraceEntries;
   sharedMemory->iterations = 0;
   sharedMemory->numOfReads = sharedMemory->numOfWrites = 0;
-  sharedMemory->pageFaults = sharedMemory->hits = 0;
+  sharedMemory->pageFaults = sharedMemory->hits = sharedMemory->updates = 0;
   sharedMemory->gccTraceBits = sharedMemory->bzipTraceBits = 0;
   // Create the queue (shared page table)
   sharedMemory->queue = createQueue(framesNumber);
@@ -64,8 +64,10 @@ int main (int argc, char * argv[]) {
   printf("Total P2 (bzip) iterations: %d\n", sharedMemory->bzipTraceBits);
   printf("Total page faults: %d\n", sharedMemory->pageFaults);
   printf("Total hits: %d\n", sharedMemory->hits);
+  printf("Total updates: %d\n", sharedMemory->updates);
   printf("Total reads: %d\n", sharedMemory->numOfReads);
   printf("Total writes: %d\n", sharedMemory->numOfWrites);
+  
   free(sharedMemory);
 
   return 0;

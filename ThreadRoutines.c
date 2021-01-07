@@ -27,6 +27,7 @@ void *ThreadRoutine1(void *arg) {
   unsigned int traceAddress;
   char traceType;
   int contiguousEntries = 0;
+  int pageReferene = 0;
 
   if ((gccFile = fopen("gcc.trace", "r")) == NULL) {
     printf("Couldn't open gcc.trace.\n");
@@ -48,16 +49,19 @@ void *ThreadRoutine1(void *arg) {
         page = createPage(traceAddress, traceType, PID_1);
 
           // Check if the page is in queue
-        if (!sharedMemory->chosenAlgorithm)
+        if (!sharedMemory->chosenAlgorithm){
           // Case LRU
-          if (!lruReferToPageInQueue(sharedMemory->queue, table, page))
-            sharedMemory->pageFaults++;
-          else sharedMemory->hits++;
-        else
+          pageReferene = lruReferToPageInQueue(sharedMemory->queue, table, page);
+          if (!pageReferene) sharedMemory->pageFaults++;
+          else if (pageReferene == 1) sharedMemory->hits++;
+          else sharedMemory->updates++;
+        } else {
           // Case second chance
-          if (!secondChanceReferToPageInQueue(sharedMemory->queue, table, page))
-            sharedMemory->pageFaults++;
-        else sharedMemory->hits++;
+          pageReferene = secondChanceReferToPageInQueue(sharedMemory->queue, table, page);
+          if (!pageReferene) sharedMemory->pageFaults++;
+          else if (pageReferene == 1) sharedMemory->hits++;
+          else sharedMemory->updates++;
+        }
 
         // Increment Read/Write counter depending on the trace type
         if (page->traceType == 'R') sharedMemory->numOfReads++;

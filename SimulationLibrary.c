@@ -348,13 +348,15 @@ int searchPageInQueue(Queue *queue, Page *page) {
 /*
  * Checks if a page is in cache and if it's not, brings it in.
  * If memory is full, decides which page to remove based on LRU.
- * Returns 1 if page was in cache and 0 if we had a page fault.
+ * Returns 1 if page was in cache, 0 if we had a page fault
+ * or 2 in case of update.
  */
 int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
   Page *pageToRemove;
   unsigned int key = 0;
   int pid = 0;
   int index = 0;
+  int update = 0;
   
   // Check if the page is the hashtable
   Page *temp = searchHashTable(table, page->key, page->proccessId);
@@ -396,6 +398,10 @@ int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
     // We found the page in queue, just bring it to the rear
 
     index = searchPageInQueue(queue, temp);
+    // Check wether this is an update
+    if(queue->pageArray[index].traceType == 'R' && page->traceType == 'W')
+      update = 1;
+
     // Shift all the pages up to the referred page to the front
     for (int i = index; i < queue->rear; i++) {
       queue->pageArray[i].key = queue->pageArray[i + 1].key;
@@ -411,8 +417,12 @@ int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
     queue->pageArray[queue->rear].traceType = temp->traceType;
     queue->pageArray[queue->rear].proccessId = temp->proccessId;
 
+    // This is an update
+    if (update) return 2;
+
     // This is a hit
     return 1;
+
   }
 
   return 0;
@@ -428,6 +438,7 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
   Page *pageToRemove;
   unsigned int key = 0;
   int pid = 0;
+  int update = 0;
   int index = queue->front;
 
   // Check if the page is the hashtable
@@ -506,6 +517,10 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
     // and update the second chance attribute
 
     index = searchPageInQueue(queue, temp);
+    // Check wether this is an update
+    if (queue->pageArray[index].traceType == 'R' && page->traceType == 'W')
+      update = 1;
+
     // Shift all the pages up to the referred page to the front
     while (index < queue->rear) {
       queue->pageArray[index].key = queue->pageArray[index + 1].key;
@@ -524,6 +539,9 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
     queue->pageArray[queue->rear].secondChance = 1;
     
     temp->secondChance = 1;
+
+    // This is an update
+    if (update) return 2;
 
     // This is a hit
     return 1;
