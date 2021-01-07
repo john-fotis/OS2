@@ -27,7 +27,7 @@ void *ThreadRoutine1(void *arg) {
   unsigned int traceAddress;
   char traceType;
   int contiguousEntries = 0;
-  int pageReferene = 0;
+  int pageReference = 0;
 
   if ((gccFile = fopen("gcc.trace", "r")) == NULL) {
     printf("Couldn't open gcc.trace.\n");
@@ -51,15 +51,15 @@ void *ThreadRoutine1(void *arg) {
           // Check if the page is in queue
         if (!sharedMemory->chosenAlgorithm){
           // Case LRU
-          pageReferene = lruReferToPageInQueue(sharedMemory->queue, table, page);
-          if (!pageReferene) sharedMemory->pageFaults++;
-          else if (pageReferene == 1) sharedMemory->hits++;
+          pageReference = lruReferToPageInQueue(sharedMemory->queue, table, page);
+          if (!pageReference) sharedMemory->pageFaults++;
+          else if (pageReference == 1) sharedMemory->hits++;
           else sharedMemory->updates++;
         } else {
           // Case second chance
-          pageReferene = secondChanceReferToPageInQueue(sharedMemory->queue, table, page);
-          if (!pageReferene) sharedMemory->pageFaults++;
-          else if (pageReferene == 1) sharedMemory->hits++;
+          pageReference = secondChanceReferToPageInQueue(sharedMemory->queue, table, page);
+          if (!pageReference) sharedMemory->pageFaults++;
+          else if (pageReference == 1) sharedMemory->hits++;
           else sharedMemory->updates++;
         }
 
@@ -110,6 +110,7 @@ void *ThreadRoutine2(void *arg) {
   unsigned int traceAddress;
   char traceType;
   int contiguousEntries = 0;
+  int pageReference = 0;
 
   if ((bzipFile = fopen("bzip.trace", "r")) == NULL) {
     printf("Couldn't open bzip.trace.\n");
@@ -130,17 +131,20 @@ void *ThreadRoutine2(void *arg) {
         sscanf(line, "%x %c", &traceAddress, &traceType);
         page = createPage(traceAddress, traceType, PID_2);
 
-        // Check if the page is in queue using LRU if it's not
-        if (!sharedMemory->chosenAlgorithm)
+        // Check if the page is in queue
+        if (!sharedMemory->chosenAlgorithm) {
           // Case LRU
-          if (!lruReferToPageInQueue(sharedMemory->queue, table, page))
-            sharedMemory->pageFaults++;
-          else sharedMemory->hits++;
-        else
-          // Case Second Chance
-          if (!secondChanceReferToPageInQueue(sharedMemory->queue, table, page))
-            sharedMemory->pageFaults++;
-        else sharedMemory->hits++;
+          pageReference = lruReferToPageInQueue(sharedMemory->queue, table, page);
+          if (!pageReference) sharedMemory->pageFaults++;
+          else if (pageReference == 1) sharedMemory->hits++;
+          else sharedMemory->updates++;
+        } else {
+          // Case second chance
+          pageReference = secondChanceReferToPageInQueue(sharedMemory->queue, table, page);
+          if (!pageReference) sharedMemory->pageFaults++;
+          else if (pageReference == 1) sharedMemory->hits++;
+          else sharedMemory->updates++;
+        }
 
         // Increment Read/Write counter depending on the trace type
         if (page->traceType == 'R') sharedMemory->numOfReads++;
