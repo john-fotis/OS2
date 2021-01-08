@@ -48,7 +48,7 @@ void *ThreadRoutine1(void *arg) {
         sscanf(line, "%x %c", &traceAddress, &traceType);
         page = createPage(traceAddress, traceType, PID_1);
 
-          // Check if the page is in queue
+        // Check if the page is in queue
         if (!sharedMemory->chosenAlgorithm){
           // Case LRU
           pageReference = lruReferToPageInQueue(sharedMemory->queue, table, page);
