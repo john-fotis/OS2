@@ -7,7 +7,7 @@
 
 // Basic struct used in HashTable, List and Queue
 typedef struct Page {
-  unsigned int key;
+  unsigned int trace;
   unsigned int pageNumber;
   unsigned int offset;
   char traceType;
@@ -44,7 +44,7 @@ typedef struct Queue {
 } Queue;
 
 // Page Functions
-Page *createPage(unsigned int key, char type, unsigned int pid);
+Page *createPage(unsigned int trace, char type, unsigned int pid);
 void deletePage(Page *nodeToDelete);
 void printPage(HashTable *table, Page *page);
 
@@ -56,12 +56,12 @@ LinkedList **createOverflowBucket(HashTable *table);
 void deleteOverflowBucket(HashTable *table);
 
 // HashTable Functions
-unsigned long hashFunction(unsigned int key);
+unsigned long hashFunction(unsigned int trace);
 HashTable *createHashTable(int size);
 void deleteHashTable(HashTable *table);
 void handleCollision(HashTable *table, unsigned long index, Page *collidedNode);
 void insertToHashTable(HashTable *table, Page *page);
-Page *searchHashTable(HashTable *table, unsigned int key, int pid);
+Page *searchHashTable(HashTable *table, unsigned int trace, int pid);
 void printHashTable(HashTable *table);
 
 // Queue Functions

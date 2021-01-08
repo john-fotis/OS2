@@ -6,13 +6,13 @@
 
 // ============= Page =============
 
-Page *createPage(unsigned int key, char type, unsigned int pid) {
+Page *createPage(unsigned int trace, char type, unsigned int pid) {
  
   Page *node = (Page *)malloc(sizeof(Page));
 
-  node->key = key;
-  node->pageNumber = node->key / PAGE_SIZE;
-  node->offset = node->pageNumber % PAGE_SIZE;
+  node->trace = trace;
+  node->pageNumber = trace / PAGE_SIZE;
+  node->offset = trace % PAGE_SIZE;
   node->traceType = type;
   node->proccessId = pid;
   node->isInCache = 0;
@@ -29,12 +29,13 @@ void printPage(HashTable *table, Page *page) {
 
   if(page == NULL) return;
 
-  if ((page = searchHashTable(table, page->key, page->proccessId)) == NULL) {
-    printf("%d does not exist\n", page->key);
+  if ((page = searchHashTable(table, page->trace, page->proccessId)) == NULL) {
+    printf("%d does not exist\n", page->trace);
     return;
   } else {
-    printf("Key:%8x | Page Number:%8d | Offset:%6d | Type:%2c | PID:%2d",
-    page->key, page->pageNumber, page->offset, page->traceType, page->proccessId);
+    printf("Trace:%8x | Page Number:%6d | Offset:%4d | Type:%2c | PID:%2d",
+    (page->trace*PAGE_SIZE + page->offset), page->pageNumber,
+    page->offset, page->traceType, page->proccessId);
   }
 
 }
@@ -112,9 +113,9 @@ LinkedList **createOverflowBucket(HashTable *table) {
 
 // ============= HashTable =============
 
-unsigned long hashFunction(unsigned int key) {
+unsigned long hashFunction(unsigned int trace) {
   unsigned long i = 0;
-  i = ((key >> 16) ^ key) * 0x45d9f3b;
+  i = ((trace >> 16) ^ trace) * 0x45d9f3b;
   i = ((i >> 16) ^ i) * 0x45d9f3b;
   i = ((i >> 16) ^ i);
   return i % CAPACITY;
@@ -171,18 +172,18 @@ void handleCollision(HashTable *table, unsigned long index, Page *collidedNode) 
 void insertToHashTable(HashTable *table, Page *page) {
 
   // The node is already in the hash table
-  if(searchHashTable(table, page->key, page->proccessId) != NULL) return;
+  if(searchHashTable(table, page->trace, page->proccessId) != NULL) return;
 
   // Create the item
-  Page *nodeToInsert = createPage(page->key, page->traceType, page->proccessId);
+  Page *nodeToInsert = createPage(page->trace, page->traceType, page->proccessId);
 
   // Compute the index
-  int index = hashFunction(nodeToInsert->key);
+  int index = hashFunction(nodeToInsert->trace);
 
   Page *current_item = table->pageArray[index];
 
   if (current_item == NULL) {
-    // Key does not exist.
+    // Trace does not exist.
     if (table->count == table->size) {
       // Hash Table Full
       printf("Insert Error: Hash Table is full\n");
@@ -196,12 +197,10 @@ void insertToHashTable(HashTable *table, Page *page) {
     table->totalPages++;
   } else {
     // Case 1: We only need to update node
-    if (current_item->key == nodeToInsert->key &&
+    if (current_item->trace == nodeToInsert->trace &&
         current_item->proccessId == nodeToInsert->proccessId) {
-      if(current_item->traceType == 'R' && nodeToInsert->traceType == 'W') {
-        printf("Updated item %d\n", current_item->key);
+      if(current_item->traceType == 'R' && nodeToInsert->traceType == 'W')
         current_item->traceType = 'W';
-      }
       return;
     } else {
       // Case 2: Collision
@@ -212,16 +211,17 @@ void insertToHashTable(HashTable *table, Page *page) {
 
 }
 
-// Searches the key in the hashtable
+// Searches the trace in the hashtable
 // and returns NULL if it doesn't exist
-Page *searchHashTable(HashTable *table, unsigned int key, int pid) {
+Page *searchHashTable(HashTable *table, unsigned int trace, int pid) {
   
-  int index = hashFunction(key);
+  int index = hashFunction(trace);
   Page *requestedNode = table->pageArray[index];
   LinkedList *head = table->overflowBucket[index];
 
+  // We're looking for a page with same page number and pid
   while (requestedNode != NULL) {
-    if (requestedNode->key == key &&
+    if (requestedNode->pageNumber == (trace / PAGE_SIZE) &&
         requestedNode->proccessId == pid)
       return requestedNode;
     if (head == NULL)
@@ -267,7 +267,7 @@ Queue *createQueue(int numberOfPages) {
 
   // Initialise queue
   for (int i = 0; i < queue->maxPages; i++) {
-    queue->pageArray[i].key = 0;
+    queue->pageArray[i].trace = 0;
     queue->pageArray[i].pageNumber = 0;
     queue->pageArray[i].offset = 0;
     queue->pageArray[i].traceType = 'R';
@@ -291,31 +291,12 @@ void insertToQueue(Queue *queue, Page *page) {
   // Only for first insertion
   if (queue->front == -1) queue->front = 0;
 
-  if (isQueueFull(queue)) {
-    // Shift everything one cell to the front (thus the oldest page is removed)
-    for(int i = 0; i < queue->rear; i++){
-      queue->pageArray[i].key = queue->pageArray[i + 1].key;
-      queue->pageArray[i].pageNumber = queue->pageArray[i + 1].pageNumber;
-      queue->pageArray[i].offset = queue->pageArray[i + 1].offset;
-      queue->pageArray[i].traceType = queue->pageArray[i + 1].traceType;
-      queue->pageArray[i].proccessId = queue->pageArray[i + 1].proccessId;
-    }
-
-    // Insert the new page to the rear
-    queue->pageArray[queue->rear].key = page->key;
-    queue->pageArray[queue->rear].pageNumber = page->pageNumber;
-    queue->pageArray[queue->rear].offset = page->offset;
-    queue->pageArray[queue->rear].traceType = page->traceType;
-    queue->pageArray[queue->rear].proccessId = page->proccessId;
-    queue->pageArray[queue->rear].isInCache = 1;
-    page->isInCache = 1;
-    return;
-    
-  } else {
+  if (isQueueFull(queue)) return;
+  else {
 
     queue->rear++;
     // Insert the new page to the rear
-    queue->pageArray[queue->rear].key = page->key;
+    queue->pageArray[queue->rear].trace = page->trace;
     queue->pageArray[queue->rear].pageNumber = page->pageNumber;
     queue->pageArray[queue->rear].offset = page->offset;
     queue->pageArray[queue->rear].traceType = page->traceType;
@@ -327,7 +308,6 @@ void insertToQueue(Queue *queue, Page *page) {
     return;
   }
 
-
 }
 
 // Returns the index of a page in queue (cache)
@@ -337,7 +317,7 @@ int searchPageInQueue(Queue *queue, Page *page) {
   if(page == NULL) return -1;
 
   for(int index = 0; index < queue->rear; index++)
-    if (page->key == queue->pageArray[index].key &&
+    if (page->trace == queue->pageArray[index].trace &&
         page->proccessId == queue->pageArray[index].proccessId)
       return index;
 
@@ -353,65 +333,89 @@ int searchPageInQueue(Queue *queue, Page *page) {
  */
 int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
   Page *pageToRemove;
-  unsigned int key = 0;
+  unsigned int trace = 0;
   int pid = 0;
   int index = 0;
   int update = 0;
   
   // Check if the page is the hashtable
-  Page *temp = searchHashTable(table, page->key, page->proccessId);
+  Page *temp = searchHashTable(table, page->trace, page->proccessId);
   // Find the least recently used page in queue (front node)
-  if (!isQueueEmpty(queue)){
-    key = queue->pageArray[index].key;
+  if (!isQueueEmpty(queue)) {
+    trace = queue->pageArray[index].trace;
     pid = queue->pageArray[index].proccessId;
-    pageToRemove = searchHashTable(table, key, pid);
+    pageToRemove = searchHashTable(table, trace, pid);
   }
 
   // If the page isn't in hashtable, this is te first time loading it
-  if(temp == NULL){
+  if (temp == NULL) {
 
     // Mark the last page in queue as "removed"
     if(pageToRemove != NULL)
       pageToRemove->isInCache = 0;
     // Insert the new page both in hash and queue
     insertToHashTable(table, page);
+    if (isQueueFull(queue)) {
+      // Shift everything one cell to the front (thus the oldest page is removed)
+      for (int i = 0; i < queue->rear; i++) {
+        queue->pageArray[i].trace = queue->pageArray[i + 1].trace;
+        queue->pageArray[i].pageNumber = queue->pageArray[i + 1].pageNumber;
+        queue->pageArray[i].offset = queue->pageArray[i + 1].offset;
+        queue->pageArray[i].traceType = queue->pageArray[i + 1].traceType;
+        queue->pageArray[i].proccessId = queue->pageArray[i + 1].proccessId;
+      }
+      // Remove the rear node to insert the new one
+      queue->rear--;
+      queue->occupiedPages--;
+    }
     insertToQueue(queue, page);
-    page->isInCache = 1;
     
     // This is a page fault
     return 0;
   }
 
   // The page is in hash table but not in queue
-  if(!temp->isInCache){
+  if (!temp->isInCache) {
 
     // Mark the last page in queue as "removed"
     if (pageToRemove != NULL)
       pageToRemove->isInCache = 0;
-    // Load the new page only in the queue
+    if (isQueueFull(queue)) {
+      // Shift everything one cell to the front (thus the oldest page is removed)
+      for (int i = 0; i < queue->rear; i++) {
+        queue->pageArray[i].trace = queue->pageArray[i + 1].trace;
+        queue->pageArray[i].pageNumber = queue->pageArray[i + 1].pageNumber;
+        queue->pageArray[i].offset = queue->pageArray[i + 1].offset;
+        queue->pageArray[i].traceType = queue->pageArray[i + 1].traceType;
+        queue->pageArray[i].proccessId = queue->pageArray[i + 1].proccessId;
+      }
+      // Remove the rear node to insert the new one
+      queue->rear--;
+      queue->occupiedPages--;
+    }
     insertToQueue(queue, temp);
-    temp->isInCache = 1;
 
     // This is also a page fault
     return 0;
+
   } else {
     // We found the page in queue, just bring it to the rear
 
     index = searchPageInQueue(queue, temp);
     // Check wether this is an update
-    if(queue->pageArray[index].traceType == 'R' && page->traceType == 'W')
+    if (queue->pageArray[index].traceType == 'R' && page->traceType == 'W')
       update = 1;
 
     // Shift all the pages up to the referred page to the front
     for (int i = index; i < queue->rear; i++) {
-      queue->pageArray[i].key = queue->pageArray[i + 1].key;
+      queue->pageArray[i].trace = queue->pageArray[i + 1].trace;
       queue->pageArray[i].pageNumber = queue->pageArray[i + 1].pageNumber;
       queue->pageArray[i].offset = queue->pageArray[i + 1].offset;
       queue->pageArray[i].traceType = queue->pageArray[i + 1].traceType;
       queue->pageArray[i].proccessId = queue->pageArray[i + 1].proccessId;
     }
     // Bring the requested page to the rear
-    queue->pageArray[queue->rear].key = temp->key;
+    queue->pageArray[queue->rear].trace = temp->trace;
     queue->pageArray[queue->rear].pageNumber = temp->pageNumber;
     queue->pageArray[queue->rear].offset = temp->offset;
     queue->pageArray[queue->rear].traceType = temp->traceType;
@@ -422,7 +426,6 @@ int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
 
     // This is a hit
     return 1;
-
   }
 
   return 0;
@@ -436,18 +439,18 @@ int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
 int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
 
   Page *pageToRemove;
-  unsigned int key = 0;
+  unsigned int trace = 0;
   int pid = 0;
   int update = 0;
   int index = queue->front;
 
   // Check if the page is the hashtable
-  Page *temp = searchHashTable(table, page->key, page->proccessId);
+  Page *temp = searchHashTable(table, page->trace, page->proccessId);
   // Find the least recently used page in queue (front node)
   if (!isQueueEmpty(queue)) {
-    key = queue->pageArray[queue->front].key;
+    trace = queue->pageArray[queue->front].trace;
     pid = queue->pageArray[queue->front].proccessId;
-    pageToRemove = searchHashTable(table, key, pid);
+    pageToRemove = searchHashTable(table, trace, pid);
     // This page has a second chance so look for the next victim
     if (queue->pageArray[index].secondChance == 1) {
       // Remove the second chance attribute now
@@ -455,7 +458,7 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
       // Move to the next node until you find an unprotected page
       do {
         index++;
-        pageToRemove = searchHashTable(table, queue->pageArray[index].key, queue->pageArray[index].proccessId);
+        pageToRemove = searchHashTable(table, queue->pageArray[index].trace, queue->pageArray[index].proccessId);
       } while (!pageToRemove->secondChance);
     }
   }
@@ -465,10 +468,12 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
     // Mark the pageToRemove as "removed"
     if (pageToRemove != NULL)
       pageToRemove->isInCache = 0;
+    // Insert the new page both in hash and queue
+    insertToHashTable(table, page);
     if (isQueueFull(queue)) {
       // Shift all pages up to the removed one, to the front
       for (int i = index; i < queue->rear; i++) {
-        queue->pageArray[i].key = queue->pageArray[i + 1].key;
+        queue->pageArray[i].trace = queue->pageArray[i + 1].trace;
         queue->pageArray[i].pageNumber = queue->pageArray[i + 1].pageNumber;
         queue->pageArray[i].offset = queue->pageArray[i + 1].offset;
         queue->pageArray[i].traceType = queue->pageArray[i + 1].traceType;
@@ -478,8 +483,6 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
       queue->rear--;
       queue->occupiedPages--;
     }
-    // Insert the new page both in hash and queue
-    insertToHashTable(table, page);
     insertToQueue(queue, page);
 
     // This is a page fault
@@ -495,7 +498,7 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
     if (isQueueFull(queue)) {
       // Shift all pages up to the removed one, to the front
       for (int i = index; i < queue->rear; i++) {
-        queue->pageArray[i].key = queue->pageArray[i + 1].key;
+        queue->pageArray[i].trace = queue->pageArray[i + 1].trace;
         queue->pageArray[i].pageNumber = queue->pageArray[i + 1].pageNumber;
         queue->pageArray[i].offset = queue->pageArray[i + 1].offset;
         queue->pageArray[i].traceType = queue->pageArray[i + 1].traceType;
@@ -505,7 +508,6 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
       queue->rear--;
       queue->occupiedPages--;
     }
-    // Load the new page only in the queue
     insertToQueue(queue, temp);
 
     // This is also a page fault
@@ -523,7 +525,7 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
 
     // Shift all the pages up to the referred page to the front
     while (index < queue->rear) {
-      queue->pageArray[index].key = queue->pageArray[index + 1].key;
+      queue->pageArray[index].trace = queue->pageArray[index + 1].trace;
       queue->pageArray[index].pageNumber = queue->pageArray[index + 1].pageNumber;
       queue->pageArray[index].offset = queue->pageArray[index + 1].offset;
       queue->pageArray[index].traceType = queue->pageArray[index + 1].traceType;
@@ -531,7 +533,7 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
       index++;
     }
     // Bring the requested page to the rear
-    queue->pageArray[queue->rear].key = temp->key;
+    queue->pageArray[queue->rear].trace = temp->trace;
     queue->pageArray[queue->rear].pageNumber = temp->pageNumber;
     queue->pageArray[queue->rear].offset = temp->offset;
     queue->pageArray[queue->rear].traceType = temp->traceType;
@@ -545,7 +547,6 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
 
     // This is a hit
     return 1;
-
   }
 
   return 0;
@@ -557,9 +558,9 @@ void printQueue(Queue *queue) {
 
   printf("=============\n");
   for(int i = 0; i < queue->maxPages; i++) {
-    printf("Key: %8x | Page Number: %6d | Type: %2c | PID: %2d\n",
-    queue->pageArray[i].key, queue->pageArray[i].pageNumber,
-    queue->pageArray[i].traceType, queue->pageArray[i].proccessId);
+    printf("Trace: %8x | Page Number: %6d | Offset: %4d | Type: %2c | PID: %2d\n",
+    queue->pageArray[i].trace*PAGE_SIZE+queue->pageArray[i].offset, queue->pageArray[i].pageNumber,
+    queue->pageArray[i].offset, queue->pageArray[i].traceType, queue->pageArray[i].proccessId);
   }
   printf("=============\n");
 }
