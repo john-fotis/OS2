@@ -10,9 +10,9 @@ int main (int argc, char * argv[]) {
   // Check input validity
   if (!(argc == 4 || argc == 5)) {
     printf("Correct usage:\n \
-    ./main [LRU->0 | SECOND_CHANCE->1] \
+    ./main.ex [0: LRU | 1: SECOND CHANCE] \
     [RAM frames number] \
-    [Sequential character for each file (q)] \
+    [Sequential trace entries for each process (q)] \
     (Max number of trace characters to read) \n");
     return 1;
   }
