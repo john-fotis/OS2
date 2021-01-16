@@ -35,6 +35,7 @@ int main (int argc, char * argv[]) {
   SharedBlock *sharedMemory = calloc(1, sizeof(SharedBlock));
 
   // Initialise shared memory values
+  sharedMemory->tableSize = framesNumber > DEFAULT_TABLE_SIZE ? framesNumber : DEFAULT_TABLE_SIZE;
   sharedMemory->chosenAlgorithm = chosenAlgorithm;
   sharedMemory->q = q;
   sharedMemory->maxTraceEntries = maxTraceEntries;

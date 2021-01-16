@@ -7,6 +7,7 @@
 #define PID_2 2
 
 typedef struct {
+  unsigned int tableSize;
   // Program variables
   int chosenAlgorithm, q, maxTraceEntries;
   // Statistics variables

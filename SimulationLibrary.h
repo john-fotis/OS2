@@ -1,7 +1,7 @@
 #ifndef __SIMULATIONLIBRARY__
 #define __SIMULATIONLIBRARY__
 
-#define CAPACITY 100  // Size of the Hash Tables
+#define DEFAULT_TABLE_SIZE 1000
 #define PAGE_SIZE 4096
 #define FRAME_SIZE 4096
 
@@ -56,7 +56,7 @@ LinkedList **createOverflowBucket(HashTable *table);
 void deleteOverflowBucket(HashTable *table);
 
 // HashTable Functions
-unsigned long hashFunction(unsigned int trace);
+unsigned long hashFunction(unsigned int trace, unsigned int size);
 HashTable *createHashTable(int size);
 void deleteHashTable(HashTable *table);
 void handleCollision(HashTable *table, unsigned long index, Page *collidedNode);

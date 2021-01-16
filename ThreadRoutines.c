@@ -14,7 +14,7 @@ pthread_cond_t condition2 = PTHREAD_COND_INITIALIZER;
 void *ThreadRoutine1(void *arg) {
 
   SharedBlock *sharedMemory = (SharedBlock *)arg;
-  HashTable *table = createHashTable(CAPACITY);
+  HashTable *table = createHashTable(sharedMemory->tableSize);
   Page *page;
 
   // File to read
@@ -97,7 +97,7 @@ void *ThreadRoutine1(void *arg) {
 void *ThreadRoutine2(void *arg) {
 
   SharedBlock *sharedMemory = (SharedBlock *)arg;
-  HashTable *table = createHashTable(CAPACITY);
+  HashTable *table = createHashTable(sharedMemory->tableSize);
   Page *page;
 
   // File to read

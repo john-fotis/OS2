@@ -29,7 +29,7 @@ void printPage(HashTable *table, Page *page) {
 
   if(page == NULL) return;
 
-  if ((page = searchHashTable(table, page->trace, page->proccessId)) == NULL) {
+  if ((page = searchHashTable(table, page->pageNumber, page->proccessId)) == NULL) {
     printf("%d does not exist\n", page->trace);
     return;
   } else {
@@ -113,12 +113,12 @@ LinkedList **createOverflowBucket(HashTable *table) {
 
 // ============= HashTable =============
 
-unsigned long hashFunction(unsigned int trace) {
+unsigned long hashFunction(unsigned int trace, unsigned int size) {
   unsigned long i = 0;
   i = ((trace >> 16) ^ trace) * 0x45d9f3b;
   i = ((i >> 16) ^ i) * 0x45d9f3b;
   i = ((i >> 16) ^ i);
-  return i % CAPACITY;
+  return i % size;
 }
 
 HashTable *createHashTable(int size) {
@@ -172,13 +172,13 @@ void handleCollision(HashTable *table, unsigned long index, Page *collidedNode) 
 void insertToHashTable(HashTable *table, Page *page) {
 
   // The node is already in the hash table
-  if(searchHashTable(table, page->trace, page->proccessId) != NULL) return;
+  if(searchHashTable(table, page->pageNumber, page->proccessId) != NULL) return;
 
   // Create the item
   Page *nodeToInsert = createPage(page->trace, page->traceType, page->proccessId);
 
   // Compute the index
-  int index = hashFunction(nodeToInsert->trace);
+  int index = hashFunction(nodeToInsert->pageNumber, table->size);
 
   Page *current_item = table->pageArray[index];
 
@@ -213,15 +213,15 @@ void insertToHashTable(HashTable *table, Page *page) {
 
 // Searches the trace in the hashtable
 // and returns NULL if it doesn't exist
-Page *searchHashTable(HashTable *table, unsigned int trace, int pid) {
+Page *searchHashTable(HashTable *table, unsigned int pageNumber, int pid) {
   
-  int index = hashFunction(trace);
+  int index = hashFunction(pageNumber, table->size);
   Page *requestedNode = table->pageArray[index];
   LinkedList *head = table->overflowBucket[index];
 
   // We're looking for a page with same page number and pid
   while (requestedNode != NULL) {
-    if (requestedNode->pageNumber == (trace / PAGE_SIZE) &&
+    if (requestedNode->pageNumber == pageNumber &&
         requestedNode->proccessId == pid)
       return requestedNode;
     if (head == NULL)
@@ -333,18 +333,19 @@ int searchPageInQueue(Queue *queue, Page *page) {
  */
 int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
   Page *pageToRemove;
-  unsigned int trace = 0;
+  Page requestedPage;
+  unsigned int pageNumber = 0;
   int pid = 0;
   int index = 0;
   int update = 0;
   
   // Check if the page is the hashtable
-  Page *temp = searchHashTable(table, page->trace, page->proccessId);
+  Page *temp = searchHashTable(table, page->pageNumber, page->proccessId);
   // Find the least recently used page in queue (front node)
   if (!isQueueEmpty(queue)) {
-    trace = queue->pageArray[index].trace;
+    pageNumber = queue->pageArray[index].pageNumber;
     pid = queue->pageArray[index].proccessId;
-    pageToRemove = searchHashTable(table, trace, pid);
+    pageToRemove = searchHashTable(table, pageNumber, pid);
   }
 
   // If the page isn't in hashtable, this is te first time loading it
@@ -401,6 +402,13 @@ int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
   } else {
     // We found the page in queue, just bring it to the rear
 
+    // Save the requested page info
+    requestedPage.trace = temp->trace;
+    requestedPage.pageNumber = temp->pageNumber;
+    requestedPage.offset = temp->offset;
+    requestedPage.traceType = temp->traceType;
+    requestedPage.proccessId = temp->proccessId;
+
     index = searchPageInQueue(queue, temp);
     // Check wether this is an update
     if (queue->pageArray[index].traceType == 'R' && page->traceType == 'W')
@@ -415,11 +423,11 @@ int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
       queue->pageArray[i].proccessId = queue->pageArray[i + 1].proccessId;
     }
     // Bring the requested page to the rear
-    queue->pageArray[queue->rear].trace = temp->trace;
-    queue->pageArray[queue->rear].pageNumber = temp->pageNumber;
-    queue->pageArray[queue->rear].offset = temp->offset;
-    queue->pageArray[queue->rear].traceType = temp->traceType;
-    queue->pageArray[queue->rear].proccessId = temp->proccessId;
+    queue->pageArray[queue->rear].trace = requestedPage.trace;
+    queue->pageArray[queue->rear].pageNumber = requestedPage.pageNumber;
+    queue->pageArray[queue->rear].offset = requestedPage.offset;
+    queue->pageArray[queue->rear].traceType = requestedPage.traceType;
+    queue->pageArray[queue->rear].proccessId = requestedPage.proccessId;
 
     // This is an update
     if (update) return 2;
@@ -439,18 +447,19 @@ int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
 int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
 
   Page *pageToRemove;
-  unsigned int trace = 0;
+  Page requestedPage;
+  unsigned int pageNumber = 0;
   int pid = 0;
   int update = 0;
   int index = queue->front;
 
   // Check if the page is the hashtable
-  Page *temp = searchHashTable(table, page->trace, page->proccessId);
+  Page *temp = searchHashTable(table, page->pageNumber, page->proccessId);
   // Find the least recently used page in queue (front node)
   if (!isQueueEmpty(queue)) {
-    trace = queue->pageArray[queue->front].trace;
+    pageNumber = queue->pageArray[queue->front].pageNumber;
     pid = queue->pageArray[queue->front].proccessId;
-    pageToRemove = searchHashTable(table, trace, pid);
+    pageToRemove = searchHashTable(table, pageNumber, pid);
     // This page has a second chance so look for the next victim
     if (queue->pageArray[index].secondChance == 1) {
       // Remove the second chance attribute now
@@ -458,7 +467,7 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
       // Move to the next node until you find an unprotected page
       do {
         index++;
-        pageToRemove = searchHashTable(table, queue->pageArray[index].trace, queue->pageArray[index].proccessId);
+        pageToRemove = searchHashTable(table, queue->pageArray[index].pageNumber, queue->pageArray[index].proccessId);
       } while (!pageToRemove->secondChance);
     }
   }
@@ -518,6 +527,13 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
     // Bring it to the rear (most recent)
     // and update the second chance attribute
 
+    // Save the requested page info
+    requestedPage.trace = temp->trace;
+    requestedPage.pageNumber = temp->pageNumber;
+    requestedPage.offset = temp->offset;
+    requestedPage.traceType = temp->traceType;
+    requestedPage.proccessId = temp->proccessId;
+
     index = searchPageInQueue(queue, temp);
     // Check wether this is an update
     if (queue->pageArray[index].traceType == 'R' && page->traceType == 'W')
@@ -533,11 +549,11 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
       index++;
     }
     // Bring the requested page to the rear
-    queue->pageArray[queue->rear].trace = temp->trace;
-    queue->pageArray[queue->rear].pageNumber = temp->pageNumber;
-    queue->pageArray[queue->rear].offset = temp->offset;
-    queue->pageArray[queue->rear].traceType = temp->traceType;
-    queue->pageArray[queue->rear].proccessId = temp->proccessId;
+    queue->pageArray[queue->rear].trace = requestedPage.trace;
+    queue->pageArray[queue->rear].pageNumber = requestedPage.pageNumber;
+    queue->pageArray[queue->rear].offset = requestedPage.offset;
+    queue->pageArray[queue->rear].traceType = requestedPage.traceType;
+    queue->pageArray[queue->rear].proccessId = requestedPage.proccessId;
     queue->pageArray[queue->rear].secondChance = 1;
     
     temp->secondChance = 1;
