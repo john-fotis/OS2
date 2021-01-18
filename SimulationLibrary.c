@@ -211,7 +211,7 @@ void insertToHashTable(HashTable *table, Page *page) {
 
 }
 
-// Searches the trace in the hashtable
+// Searches the page number in the hashtable
 // and returns NULL if it doesn't exist
 Page *searchHashTable(HashTable *table, unsigned int pageNumber, int pid) {
   
@@ -339,10 +339,10 @@ int lruReferToPageInQueue(Queue *queue, HashTable *table, Page *page) {
   int index = 0;
   int update = 0;
   
-  // Check if the page is the hashtable
+  // Check if the page is in the hashtable (virtual memory)
   Page *temp = searchHashTable(table, page->pageNumber, page->proccessId);
   // Find the least recently used page in queue (front node)
-  if (!isQueueEmpty(queue)) {
+  if (isQueueFull(queue)) {
     pageNumber = queue->pageArray[index].pageNumber;
     pid = queue->pageArray[index].proccessId;
     pageToRemove = searchHashTable(table, pageNumber, pid);
@@ -453,10 +453,10 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
   int update = 0;
   int index = queue->front;
 
-  // Check if the page is the hashtable
+  // Check if the page is in the hashtable (virtual memory)
   Page *temp = searchHashTable(table, page->pageNumber, page->proccessId);
   // Find the least recently used page in queue (front node)
-  if (!isQueueEmpty(queue)) {
+  if (isQueueFull(queue)) {
     pageNumber = queue->pageArray[queue->front].pageNumber;
     pid = queue->pageArray[queue->front].proccessId;
     pageToRemove = searchHashTable(table, pageNumber, pid);
@@ -468,7 +468,7 @@ int secondChanceReferToPageInQueue(Queue *queue, HashTable *table, Page *page){
       do {
         index++;
         pageToRemove = searchHashTable(table, queue->pageArray[index].pageNumber, queue->pageArray[index].proccessId);
-      } while (!pageToRemove->secondChance);
+      } while (pageToRemove->secondChance);
     }
   }
 

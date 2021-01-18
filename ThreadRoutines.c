@@ -64,8 +64,11 @@ void *ThreadRoutine1(void *arg) {
         }
 
         // Increment Read/Write counter depending on the trace type
-        if (page->traceType == 'R') sharedMemory->numOfReads++;
-        else sharedMemory->numOfWrites++;
+        // only if we had to use the disk (pagefault)
+        if (!pageReference) {
+          if (page->traceType == 'R') sharedMemory->numOfReads++;
+          else sharedMemory->numOfWrites++;
+        }
 
         // Increase the counter of the current process trace reads (gcc.trace)
         sharedMemory->gccTraceBits++;
@@ -147,8 +150,11 @@ void *ThreadRoutine2(void *arg) {
         }
 
         // Increment Read/Write counter depending on the trace type
-        if (page->traceType == 'R') sharedMemory->numOfReads++;
-        else sharedMemory->numOfWrites++;
+        // only if we had to use the disk (pagefault)
+        if (!pageReference) {
+          if (page->traceType == 'R') sharedMemory->numOfReads++;
+          else sharedMemory->numOfWrites++;
+        }
 
         // Increase the counter of the current process trace reads (bzip.trace)
         sharedMemory->bzipTraceBits++;
